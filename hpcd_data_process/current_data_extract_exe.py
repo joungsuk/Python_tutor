@@ -1,6 +1,6 @@
 import os
 import re
-import pandas as pd
+import csv
 import sys
 
 # 실행 파일 경로 설정
@@ -31,6 +31,15 @@ BASE_CONFIG = {
     'folder_path': application_path,  # 실행 파일이 있는 폴더로 설정
     'channels_range': range(1, 37)
 }
+
+def read_csv_columns(file_path, start_col, end_col):
+    data = []
+    with open(file_path, 'r', encoding='utf-8-sig') as f:
+        csv_reader = csv.reader(f)
+        for row in csv_reader:
+            if row:  # 빈 행 건너뛰기
+                data.append(row[start_col:end_col])
+    return data
 
 def extract_data(data_type, config):
     folder_path = BASE_CONFIG['folder_path']
@@ -70,16 +79,17 @@ def extract_data(data_type, config):
 
                 # CSV 읽기
                 try:
-                    df = pd.read_csv(csv_path, header=None, 
-                                   usecols=range(config['col_channel_id'], 
-                                               config['col_data_end']))
+                    data = read_csv_columns(csv_path, config['col_channel_id'], config['col_data_end'])
                     
+                    if len(data) <= row_index:
+                        continue
+
                     # 시간 데이터 추출 (첫 번째 행)
-                    time_values = df.iloc[0, 1:].values.tolist()
+                    time_values = data[0][1:]
                     
                     # channel 데이터 추출
-                    channel_id_cell = df.iloc[row_index, 0]
-                    channel_values = df.iloc[row_index, 1:].values.tolist()
+                    channel_id_cell = data[row_index][0]
+                    channel_values = data[row_index][1:]
                     
                     # 결과 저장
                     row_data = [tray_id, channel_id_cell] + channel_values
@@ -87,8 +97,6 @@ def extract_data(data_type, config):
                         time_row = ["Time", "Time"] + time_values
                         results.append(time_row)
                     results.append(row_data)
-                    
-                    del df
                     
                 except Exception as e:
                     print(f"CSV 처리 중 오류 발생 ({csv_file}): {str(e)}")
@@ -102,21 +110,23 @@ def extract_data(data_type, config):
             print(f"채널 {channel_num} 추출 결과가 없습니다.")
             continue
         
-        # DataFrame 생성 및 저장
+        # 결과 저장을 위한 전처리
         max_len = max(len(r) for r in results) - 2
-        columns = ["trayID", "channelID"] + [f"Data_{i+1}" for i in range(max_len)]
         
+        # 결과가 짧은 행은 None으로 채우기
         for r in results:
             diff = (2 + max_len) - len(r)
             if diff > 0:
-                r.extend([None]*diff)
+                r.extend([''] * diff)
         
-        df_all = pd.DataFrame(results, columns=columns)
-        df_all = df_all.drop(columns=["channelID"])
-        df_pivot = df_all.set_index("trayID").T
+        # 결과를 전치(transpose)하여 저장
+        transposed_results = list(map(list, zip(*results)))
         
+        # CSV 파일로 저장
         output_csv = os.path.join(ext_folder, f"Ch{channel_num:02d}_{config['name']}.csv")
-        df_pivot.to_csv(output_csv, index=False, header=True, encoding="utf-8-sig", sep=",")
+        with open(output_csv, 'w', newline='', encoding='utf-8-sig') as f:
+            writer = csv.writer(f)
+            writer.writerows(transposed_results)
         
         print(f"채널 {channel_num} {config['name']} 추출 완료 -> {output_csv}")
 
@@ -136,4 +146,4 @@ if __name__ == "__main__":
     print("---------------------------------------------")
     print("모든 처리가 완료되었습니다.")
     print(f"결과는 'output' 폴더에 저장되었습니다: {os.path.join(BASE_CONFIG['folder_path'], 'output')}")
-    input("프로그램을 종료하려면 아무 키나 누르세요...")
+    #input("프로그램을 종료하려면 아무 키나 누르세요...")
