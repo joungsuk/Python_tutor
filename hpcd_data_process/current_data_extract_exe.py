@@ -1,12 +1,7 @@
 import os
 import re
 import pandas as pd
-import logging
-from datetime import datetime
 import sys
-
-# 설정값
-LOGGING_ENABLED = False  # 로깅 on/off 플래그
 
 # 실행 파일 경로 설정
 if getattr(sys, 'frozen', False):
@@ -37,22 +32,6 @@ BASE_CONFIG = {
     'channels_range': range(1, 37)
 }
 
-# 로깅 설정
-if LOGGING_ENABLED:
-    log_folder = os.path.join(application_path, "logs")
-    if not os.path.exists(log_folder):
-        os.makedirs(log_folder)
-        
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(os.path.join(log_folder, f'data_extract_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'))
-        ]
-    )
-else:
-    logging.getLogger().setLevel(logging.CRITICAL)
-
 def extract_data(data_type, config):
     folder_path = BASE_CONFIG['folder_path']
     ext_folder = os.path.join(folder_path, "output")
@@ -78,13 +57,13 @@ def extract_data(data_type, config):
                 csv_path = os.path.join(folder_path, csv_file)
                 
                 if not os.path.exists(csv_path):
-                    logging.error(f"파일을 찾을 수 없음: {csv_path}")
+                    print(f"파일을 찾을 수 없음: {csv_path}")
                     continue
                 
                 # trayID 추출
                 match_tray = re.search(r"_TrayID_(.*?)_", csv_file)
                 if not match_tray:
-                    logging.warning(f"TrayID를 찾을 수 없음: {csv_file}")
+                    print(f"TrayID를 찾을 수 없음: {csv_file}")
                     tray_id = "Unknown"
                 else:
                     tray_id = match_tray.group(1)
@@ -112,11 +91,11 @@ def extract_data(data_type, config):
                     del df
                     
                 except Exception as e:
-                    logging.error(f"CSV 처리 중 오류 발생 ({csv_file}): {str(e)}")
+                    print(f"CSV 처리 중 오류 발생 ({csv_file}): {str(e)}")
                     continue
                 
             except Exception as e:
-                logging.error(f"처리 중 오류 발생: {str(e)}")
+                print(f"처리 중 오류 발생: {str(e)}")
                 continue
         
         if not results:
